@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Outputs and scratch files
+output/
+index (6).html
+*.png
+*.jpg
+*.jpeg
+.DS_Store
+
+# Reports (if keeping code files alone)
+PROJECT_REPORT.html
+PROJECT_REPORT.md

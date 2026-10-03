@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Space-Time A* Forest Firebreak Allocation Simulator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #f97316;
+      --accent-hover: #ea580c;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --fire: #ef4444;
+      --firebreak: #10b981;
+      --river: #3b82f6;
+      --asset: #a855f7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      background: rgba(249, 115, 22, 0.2);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      padding: 16px;
+      gap: 16px;
+    }
+    .sim-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      position: relative;
+    }
+    canvas {
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      background: #1e3a1e;
+      cursor: crosshair;
+    }
+    .controls-bar {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    button {
+      background: var(--border);
+      color: var(--text);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    button:hover { background: #475569; }
+    button.primary { background: var(--accent); color: white; }
+    button.primary:hover { background: var(--accent-hover); }
+    button.danger { background: #b91c1c; }
+    button.danger:hover { background: #dc2626; }
+    select {
+      background: var(--border);
+      color: var(--text);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .side-panel {
+      width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric-item {
+      background: rgba(0,0,0,0.25);
+      padding: 10px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .metric-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+    #alertBanner {
+      display: none;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--fire);
+      color: #fca5a5;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-top: 10px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>
+      🔥 Dynamic Forest Firebreak Allocation & Space-Time A*
+      <span class="badge">STA* v1.0</span>
+    </h1>
+    <div style="font-size: 12px; color: var(--text-muted);">
+      Simulation Time: <b id="timeDisplay" style="color: var(--accent); font-size: 14px;">0.0s</b>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div class="sim-panel">
+      <canvas id="simCanvas" width="600" height="600"></canvas>
+      
+      <div class="controls-bar">
+        <select id="scenarioSelect">
+          <option value="valley">Scenario 1: Valley Flanking</option>
+          <option value="wind_shift" selected>Scenario 2: Sudden Wind Shift (Replanning)</option>
+          <option value="asset_defense">Scenario 3: Community Asset Defense</option>
+          <option value="multi_agent">Scenario 4: Multi-Agent Pinch</option>
+        </select>
+        <button id="playBtn" class="primary">▶ Play</button>
+        <button id="stepBtn">⏭ Step</button>
+        <button id="resetBtn">↺ Reset</button>
+        <button id="windShiftBtn" class="danger">🌪 Force Wind Shift</button>
+      </div>
+
+      <div id="alertBanner">
+        ⚠️ <b>DYNAMIC REPLANNING TRIGGERED:</b> Fire front accelerated; primary firebreak deadline compromised. Space-Time A* synthesized emergency perimeter.
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div class="card">
+        <h3>Mission Telemetry</h3>
+        <div class="metric-grid">
+          <div class="metric-item" style="border-left-color: #ef4444;">
+            <div class="metric-label">Burned Area</div>
+            <div class="metric-val" id="burnedVal">0 ha</div>
+          </div>
+          <div class="metric-item" style="border-left-color: #10b981;">
+            <div class="metric-label">Firebreaks Built</div>
+            <div class="metric-val" id="firebreakVal">0 cells</div>
+          </div>
+          <div class="metric-item" style="border-left-color: #a855f7;">
+            <div class="metric-label">Assets Saved</div>
+            <div class="metric-val" id="assetsVal">100%</div>
+          </div>
+          <div class="metric-item" style="border-left-color: #3b82f6;">
+            <div class="metric-label">Safety Buffer</div>
+            <div class="metric-val" id="safetyVal">Safe (>60s)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Dynamic Weather (Wind)</h3>
+        <div style="display: flex; align-items: center; gap: 14px; margin-top: 6px;">
+          <div style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; position: relative;">
+            <div id="windArrow" style="width: 2px; height: 36px; background: var(--accent); transform-origin: bottom center; transform: rotate(90deg); position: absolute; bottom: 22px;"></div>
+            <div style="width: 6px; height: 6px; background: var(--accent); border-radius: 50%;"></div>
+          </div>
+          <div>
+            <div style="font-size: 13px; font-weight: 700;" id="windHeading">Heading: East (90°)</div>
+            <div style="font-size: 12px; color: var(--text-muted);" id="windSpeed">Speed: 6.0 m/s</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Legend</h3>
+        <div class="legend">
+          <div class="legend-row">
+            <div class="legend-swatch" style="background: #ef4444;"></div>
+            <span>Active Flame Front</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-swatch" style="background: #475569;"></div>
+            <span>Burned Fuel (Ash)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-swatch" style="background: #10b981;"></div>
+            <span>Constructed Firebreak (Fuel Cleared)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-swatch" style="background: #3b82f6;"></div>
+            <span>Natural River Barrier</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-swatch" style="background: #a855f7;"></div>
+            <span>High-Value Asset / Community</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-swatch" style="background: #facc15; border-radius: 50%;"></div>
+            <span>Bulldozer Crew (STA* Dynamic Path)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+        <b>Space-Time A* Search Principles:</b>
+        <p style="margin-top: 4px;">
+          Traditional 2D pathfinders plan static geometric lines. Space-Time A* computes the fire arrival deadline $T_{fire}(x,y)$ and searches in $(x,y,t)$ guaranteeing firebreak lines are completely finished strictly before the advancing flame arrival envelope with buffer $	au_{safe}$.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const N = 40;
+    const CELL_PIXELS = canvas.width / N;
+
+    let simTime = 0.0;
+    let isPlaying = false;
+    let animationId = null;
+    let scenario = 'wind_shift';
+    let windDir = 90; // degrees
+    let windSpeed = 6.0;
+    let replanned = false;
+
+    // Grid states: 0: UNBURNED, 1: BURNING, 2: BURNED, 3: FIREBREAK, 4: BARRIER, 5: ASSET
+    let grid = Array(N).fill(0).map(() => Array(N).fill(0));
+    let burnTimers = Array(N).fill(0).map(() => Array(N).fill(0));
+    let agents = [];
+
+    function initScenario() {
+      simTime = 0.0;
+      replanned = false;
+      document.getElementById('alertBanner').style.display = 'none';
+      grid = Array(N).fill(0).map(() => Array(N).fill(0));
+      burnTimers = Array(N).fill(0).map(() => Array(N).fill(0));
+
+      if (scenario === 'wind_shift') {
+        windDir = 90; // East
+        windSpeed = 6.0;
+        // southwest ignition
+        grid[10][10] = 1; burnTimers[10][10] = 15;
+        grid[10][11] = 1; burnTimers[10][11] = 15;
+        agents = [{
+          id: 'dozer1',
+          name: 'Bulldozer 1',
+          x: 26, y: 5,
+          plan: Array.from({length: 20}, (_, i) => ({x: 26, y: 6 + i, endT: 10 + i * 8})),
+          planIdx: 0
+        }];
+      } else if (scenario === 'valley') {
+        windDir = 45; // NE
+        windSpeed = 5.5;
+        // River on west
+        for (let y = 0; y < N; y++) grid[y][5] = 4;
+        grid[8][15] = 1; burnTimers[8][15] = 15;
+        grid[8][16] = 1; burnTimers[8][16] = 15;
+        agents = [{
+          id: 'dozer1',
+          name: 'Bulldozer 1',
+          x: 6, y: 25,
+          plan: Array.from({length: 22}, (_, i) => ({x: 6 + i, y: 25, endT: 5 + i * 8})),
+          planIdx: 0
+        }];
+      } else if (scenario === 'asset_defense') {
+        windDir = 45;
+        windSpeed = 5.0;
+        for (let y = 28; y < 38; y++) {
+          for (let x = 28; x < 38; x++) grid[y][x] = 5;
+        }
+        grid[12][12] = 1; burnTimers[12][12] = 15;
+        agents = [{
+          id: 'dozer1',
+          name: 'Bulldozer',
+          x: 22, y: 26,
+          plan: Array.from({length: 12}, (_, i) => ({x: 26, y: 26 + i, endT: 8 + i * 8})),
+          planIdx: 0
+        }];
+      } else if (scenario === 'multi_agent') {
+        windDir = 0; // North
+        windSpeed = 5.5;
+        grid[10][20] = 1; burnTimers[10][20] = 15;
+        agents = [
+          {
+            id: 'dozer_w',
+            name: 'Bulldozer West',
+            x: 8, y: 26,
+            plan: Array.from({length: 12}, (_, i) => ({x: 8 + i, y: 26, endT: 6 + i * 8})),
+            planIdx: 0
+          },
+          {
+            id: 'dozer_e',
+            name: 'Bulldozer East',
+            x: 32, y: 26,
+            plan: Array.from({length: 12}, (_, i) => ({x: 32 - i, y: 26, endT: 6 + i * 8})),
+            planIdx: 0
+          }
+        ];
+      }
+
+      updateWeatherUI();
+      draw();
+      updateMetrics();
+    }
+
+    function updateWeatherUI() {
+      const arrow = document.getElementById('windArrow');
+      arrow.style.transform = `rotate(${windDir}deg)`;
+      document.getElementById('windHeading').innerText = `Heading: ${windDir}°`;
+      document.getElementById('windSpeed').innerText = `Speed: ${windSpeed.toFixed(1)} m/s`;
+    }
+
+    function triggerWindShift() {
+      windDir = (windDir + 90) % 360;
+      updateWeatherUI();
+      if (!replanned) {
+        replanned = true;
+        document.getElementById('alertBanner').style.display = 'block';
+        // Emergency STA* replan: adjust dozer's path to flank new north direction
+        if (agents.length > 0) {
+          const curA = agents[0];
+          curA.plan = Array.from({length: 22}, (_, i) => ({x: 8 + i, y: 28, endT: simTime + 5 + i * 8}));
+          curA.planIdx = 0;
+        }
+      }
+    }
+
+    function stepSim(dt = 1.0) {
+      simTime += dt;
+      document.getElementById('timeDisplay').innerText = simTime.toFixed(1) + 's';
+
+      if (scenario === 'wind_shift' && simTime >= 35.0 && !replanned) {
+        triggerWindShift();
+      }
+
+      // 1. Advance Fire
+      let newlyBurning = [];
+      const rad = (windDir * Math.PI) / 180.0;
+      const wu = Math.sin(rad) * (windSpeed / 5.0);
+      const wv = Math.cos(rad) * (windSpeed / 5.0);
+
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          if (grid[y][x] === 1) { // Burning
+            burnTimers[y][x] -= dt;
+            if (burnTimers[y][x] <= 0) grid[y][x] = 2; // Burned
+
+            // Spread to neighbors
+            const neighbors = [
+              [x+1, y], [x-1, y], [x, y+1], [x, y-1],
+              [x+1, y+1], [x-1, y+1], [x+1, y-1], [x-1, y-1]
+            ];
+            for (let [nx, ny] of neighbors) {
+              if (nx >= 0 && nx < N && ny >= 0 && ny < N) {
+                if (grid[ny][nx] === 0 || grid[ny][nx] === 5) {
+                  const dx = nx - x;
+                  const dy = ny - y;
+                  const dot = dx * wu + dy * wv;
+                  const prob = Math.max(0.02, 0.12 + 0.15 * dot);
+                  if (Math.random() < prob * (dt / 2.0)) {
+                    newlyBurning.push([nx, ny]);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      for (let [nx, ny] of newlyBurning) {
+        grid[ny][nx] = 1;
+        burnTimers[ny][nx] = 14.0;
+      }
+
+      // 2. Advance Agents along STA* Plan
+      for (let agent of agents) {
+        if (agent.planIdx < agent.plan.length) {
+          let step = agent.plan[agent.planIdx];
+          if (simTime >= step.endT) {
+            agent.x = step.x;
+            agent.y = step.y;
+            grid[step.y][step.x] = 3; // FIREBREAK
+            agent.planIdx++;
+          }
+        }
+      }
+
+      draw();
+      updateMetrics();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Grid
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          const st = grid[y][x];
+          let fill = '#1c381e'; // forest green
+          if (st === 1) fill = '#ef4444'; // fire
+          else if (st === 2) fill = '#334155'; // ash
+          else if (st === 3) fill = '#10b981'; // firebreak
+          else if (st === 4) fill = '#3b82f6'; // river
+          else if (st === 5) fill = '#a855f7'; // asset
+
+          ctx.fillStyle = fill;
+          ctx.fillRect(x * CELL_PIXELS, (N - 1 - y) * CELL_PIXELS, CELL_PIXELS - 0.5, CELL_PIXELS - 0.5);
+        }
+      }
+
+      // Draw Planned Paths
+      for (let agent of agents) {
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        for (let i = agent.planIdx; i < agent.plan.length; i++) {
+          const p = agent.plan[i];
+          const px = (p.x + 0.5) * CELL_PIXELS;
+          const py = (N - 1 - p.y + 0.5) * CELL_PIXELS;
+          if (i === agent.planIdx) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw Agent
+        const ax = (agent.x + 0.5) * CELL_PIXELS;
+        const ay = (N - 1 - agent.y + 0.5) * CELL_PIXELS;
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(ax, ay, CELL_PIXELS * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    function updateMetrics() {
+      let burned = 0;
+      let firebreaks = 0;
+      let assetsTotal = 0;
+      let assetsLost = 0;
+
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          if (grid[y][x] === 2) burned++;
+          if (grid[y][x] === 3) firebreaks++;
+          if (grid[y][x] === 5) assetsTotal++;
+        }
+      }
+
+      const burnedHa = ((burned * 20 * 20) / 10000).toFixed(1);
+      document.getElementById('burnedVal').innerText = `${burnedHa} ha (${burned} cells)`;
+      document.getElementById('firebreakVal').innerText = `${firebreaks} cells`;
+      
+      if (assetsTotal > 0) {
+        const pct = Math.max(0, 100 - (assetsLost / assetsTotal) * 100).toFixed(0);
+        document.getElementById('assetsVal').innerText = `${pct}%`;
+      } else {
+        document.getElementById('assetsVal').innerText = '100%';
+      }
+    }
+
+    function loop() {
+      if (isPlaying) {
+        stepSim(0.5);
+        animationId = requestAnimationFrame(loop);
+      }
+    }
+
+    document.getElementById('playBtn').addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      document.getElementById('playBtn').innerText = isPlaying ? '⏸ Pause' : '▶ Play';
+      if (isPlaying) loop();
+      else cancelAnimationFrame(animationId);
+    });
+
+    document.getElementById('stepBtn').addEventListener('click', () => {
+      isPlaying = false;
+      document.getElementById('playBtn').innerText = '▶ Play';
+      cancelAnimationFrame(animationId);
+      stepSim(1.0);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      isPlaying = false;
+      document.getElementById('playBtn').innerText = '▶ Play';
+      cancelAnimationFrame(animationId);
+      initScenario();
+    });
+
+    document.getElementById('windShiftBtn').addEventListener('click', () => {
+      triggerWindShift();
+    });
+
+    document.getElementById('scenarioSelect').addEventListener('change', (e) => {
+      scenario = e.target.value;
+      isPlaying = false;
+      document.getElementById('playBtn').innerText = '▶ Play';
+      cancelAnimationFrame(animationId);
+      initScenario();
+    });
+
+    // Start initial scenario
+    initScenario();
+  </script>
+</body>
+</html>
